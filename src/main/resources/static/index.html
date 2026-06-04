@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAG 문서 질의응답</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 720px;
+           margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
+    h1 { font-size: 22px; }
+    .card { border: 1px solid #e3e3e3; border-radius: 12px; padding: 20px; margin: 16px 0; }
+    .row { display: flex; gap: 8px; }
+    input[type=text] { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; }
+    button { padding: 10px 16px; border: 0; border-radius: 8px; background: #2563eb;
+             color: #fff; font-size: 15px; cursor: pointer; }
+    button:disabled { background: #9db8f0; cursor: default; }
+    .status { font-size: 14px; color: #555; margin-top: 8px; min-height: 18px; }
+    #answer { white-space: pre-wrap; line-height: 1.6; margin-top: 12px; }
+    .label { font-weight: 600; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <h1>📄 RAG 문서 질의응답</h1>
+  <p>문서를 업로드한 뒤, 그 내용에 대해 질문하면 Gemma가 답해줍니다.</p>
+
+  <div class="card">
+    <div class="label">1. 문서 업로드 (PDF, Word, txt 등)</div>
+    <div class="row">
+      <input type="file" id="fileInput">
+      <button id="uploadBtn" onclick="uploadFile()">업로드</button>
+    </div>
+    <div class="status" id="uploadStatus"></div>
+  </div>
+
+  <div class="card">
+    <div class="label">2. 질문하기</div>
+    <div class="row">
+      <input type="text" id="question" placeholder="예: 이 문서의 핵심 내용은?"
+             onkeydown="if(event.key==='Enter') ask()">
+      <button id="askBtn" onclick="ask()">질문</button>
+    </div>
+    <div class="status" id="askStatus"></div>
+    <div id="answer"></div>
+  </div>
+
+  <script>
+    async function uploadFile() {
+      const f = document.getElementById('fileInput').files[0];
+      if (!f) { setStatus('uploadStatus', '파일을 선택하세요.'); return; }
+      const btn = document.getElementById('uploadBtn');
+      btn.disabled = true; setStatus('uploadStatus', '학습 중...');
+      try {
+        const fd = new FormData(); fd.append('file', f);
+        const res = await fetch('/api/upload', { method: 'POST', body: fd });
+        const data = await res.json();
+        setStatus('uploadStatus', `✅ ${data.message} (chunk ${data.chunks}개)`);
+      } catch (e) {
+        setStatus('uploadStatus', '❌ 업로드 실패: ' + e.message);
+      } finally { btn.disabled = false; }
+    }
+
+    async function ask() {
+      const q = document.getElementById('question').value.trim();
+      if (!q) return;
+      const btn = document.getElementById('askBtn');
+      btn.disabled = true;
+      setStatus('askStatus', '생각 중... (로컬 모델이라 다소 느릴 수 있어요)');
+      document.getElementById('answer').textContent = '';
+      try {
+        const res = await fetch('/api/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: q })
+        });
+        const data = await res.json();
+        setStatus('askStatus', '');
+        document.getElementById('answer').textContent = data.answer;
+      } catch (e) {
+        setStatus('askStatus', '❌ 오류: ' + e.message);
+      } finally { btn.disabled = false; }
+    }
+
+    function setStatus(id, msg) { document.getElementById(id).textContent = msg; }
+  </script>
+</body>
+</html>
