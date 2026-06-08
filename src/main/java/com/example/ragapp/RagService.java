@@ -41,15 +41,21 @@ public class RagService {
     }
 
     /**
-     * [2단계 - 질문] 질문과 의미가 비슷한 chunk를 찾아 LLM에게 함께 전달하고 답변을 생성합니다.
+     * 답변 결과. answer = LLM 답변, sources = 답변 근거가 된 문서(파일명) 목록.
      */
-    public String ask(String question) {
+    public record AskResult(String answer, List<String> sources) {}
+
+    /**
+     * [2단계 - 질문] 질문과 의미가 비슷한 chunk를 찾아 LLM에게 함께 전달하고 답변을 생성합니다.
+     * 답변과 함께, 근거가 된 chunk들의 출처(파일명)도 반환합니다.
+     */
+    public AskResult ask(String question) {
         // (1) 질문과 의미적으로 가까운 chunk 상위 4개를 검색
         List<Document> related = vectorStore.similaritySearch(
                 SearchRequest.builder().query(question).topK(4).build());
 
         if (related.isEmpty()) {
-            return "먼저 문서를 업로드해 주세요. 아직 학습된 자료가 없습니다.";
+            return new AskResult("먼저 문서를 업로드해 주세요. 아직 학습된 자료가 없습니다.", List.of());
         }
 
         // (2) 검색된 chunk들을 하나의 참고자료(context)로 합침
@@ -70,6 +76,15 @@ public class RagService {
                 %s
                 """.formatted(context, question);
 
-        return chatClient.prompt().user(prompt).call().content();
+        String answer = chatClient.prompt().user(prompt).call().content();
+
+        // (4) 근거가 된 chunk들의 출처(파일명)를 중복 없이 모아 함께 반환
+        //     - 메타데이터의 "source" 키에 업로드한 파일명이 담겨 있다 (Tika가 넣어줌)
+        List<String> sources = related.stream()
+                .map(doc -> String.valueOf(doc.getMetadata().getOrDefault("source", "(알 수 없음)")))
+                .distinct()
+                .toList();
+
+        return new AskResult(answer, sources);
     }
 }

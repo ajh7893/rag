@@ -18,6 +18,9 @@
     .status { font-size: 14px; color: #555; margin-top: 8px; min-height: 18px; }
     #answer { white-space: pre-wrap; line-height: 1.6; margin-top: 12px; }
     .label { font-weight: 600; margin-bottom: 8px; }
+    #sources { margin-top: 12px; font-size: 13px; color: #555; }
+    #sources .src-tag { display: inline-block; background: #eef2ff; color: #3730a3;
+                        border-radius: 6px; padding: 2px 8px; margin: 2px 4px 2px 0; }
   </style>
 </head>
 <body>
@@ -42,6 +45,7 @@
     </div>
     <div class="status" id="askStatus"></div>
     <div id="answer"></div>
+    <div id="sources"></div>
   </div>
 
   <script>
@@ -76,12 +80,20 @@
         const data = await res.json();
         setStatus('askStatus', '');
         document.getElementById('answer').textContent = data.answer;
+        renderSources(data.sources);
       } catch (e) {
         setStatus('askStatus', '❌ 오류: ' + e.message);
       } finally { btn.disabled = false; }
     }
 
     function setStatus(id, msg) { document.getElementById(id).textContent = msg; }
+
+    function renderSources(sources) {
+      const box = document.getElementById('sources');
+      if (!sources || sources.length === 0) { box.innerHTML = ''; return; }
+      const tags = sources.map(s => `<span class="src-tag">📎 ${s}</span>`).join('');
+      box.innerHTML = `<span>출처: </span>${tags}`;
+    }
   </script>
 </body>
 </html>

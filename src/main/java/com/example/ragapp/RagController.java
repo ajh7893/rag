@@ -26,10 +26,13 @@ public class RagController {
         );
     }
 
-    /** 질문 → 관련 chunk 검색 → LLM 답변 */
+    /** 질문 → 관련 chunk 검색 → LLM 답변 (+ 근거 문서 출처) */
     @PostMapping("/ask")
-    public Map<String, String> ask(@RequestBody Map<String, String> body) {
-        String answer = ragService.ask(body.getOrDefault("question", ""));
-        return Map.of("answer", answer);
+    public Map<String, Object> ask(@RequestBody Map<String, String> body) {
+        RagService.AskResult result = ragService.ask(body.getOrDefault("question", ""));
+        return Map.of(
+                "answer", result.answer(),
+                "sources", result.sources()
+        );
     }
 }
